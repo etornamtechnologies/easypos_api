@@ -240,7 +240,7 @@ public class AdminController {
 
     @GetMapping(value = "/users", produces = MediaType.APPLICATION_JSON_VALUE)
     public @ResponseBody
-    GeneralResponse getAllUser(@RequestHeader(name = "Authorization", required = true) String token) {
+    GeneralResponse getAllUsers(@RequestHeader(name = "Authorization", required = true) String token) {
         //lets authenticate
         ValidateTokenResponse validateTokenResponse = jwtUtil.validateUserToken(token);
         if(!validateTokenResponse.getCode().equals(CommonResponse.SUCCESS_CODE)) {
@@ -278,7 +278,7 @@ public class AdminController {
         return new GeneralResponse(CommonResponse.SUCCESS_CODE, CommonResponse.SUCCESS_MSG, data);
     }
 
-    @GetMapping(value = "/users/{user}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/users/{userId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public @ResponseBody
     GeneralResponse getUserDetails(@RequestHeader(name = "Authorization", required = true) String token,
                                    @PathVariable(name = "userId") Integer userId,
@@ -386,7 +386,6 @@ public class AdminController {
         return new GeneralResponse(CommonResponse.SUCCESS_CODE, CommonResponse.SUCCESS_MSG, data);
     }
 
-    @Transactional
     @DeleteMapping(value = "/users/{userId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public @ResponseBody
     GeneralResponse deleteUser(@RequestHeader(name = "Authorization", required = true) String token,
@@ -410,7 +409,6 @@ public class AdminController {
         ActivityLog logModel = new ActivityLog(SystemEvents.DELETE, SystemModels.USER, String.valueOf(user.getId()),
                 user.getName(), null, request.getRemoteAddr(), request.getLocalAddr(), authUser);
         activityLogService.createActivityLog(logModel);
-
         return new GeneralResponse(CommonResponse.SUCCESS_CODE, CommonResponse.SUCCESS_MSG, null);
     }
 
@@ -469,80 +467,4 @@ public class AdminController {
     }
 
 
-    //========================User Auth EndPoints===================
-
-    @Transactional
-    @PostMapping(value = "/auth/login", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public @ResponseBody
-    GeneralResponse loginUser(@Valid @RequestBody(required = true) LoginRequest req,
-                              HttpServletRequest httpServletRequest) {
-        logger.info("================REQBODY: " + req.toString());
-        logger.info("=======In Login Controller=========");
-        LoginHistory history = new LoginHistory();
-        history.setSourceIp(httpServletRequest.getRemoteAddr());
-        history.setDestinationIp(httpServletRequest.getLocalAddr());
-        history.setStatus("N");
-        Optional<User> user = userRepository.findUserByUsernameIgnoreCase(req.getUsername());
-        User userVo = new User();
-        Map myData = new HashMap();
-        if(!user.isPresent()) {
-            logger.info("User Not Present");
-            LoginHistory loginHistory = loginHistoryService.createLoginHistory(history); //save login history
-            return new GeneralResponse(CommonResponse.LOGIN_FAILED_CODE, CommonResponse.LOGIN_FAILED_MSG);
-        } else {
-            User userModel = userService.getUserById(user.get().getId());
-            history.setUser(user.get());
-            if(user.get().getFailedLoginCount() >= configParams.getFailedLoginCount()
-                    || !user.get().getStatus().equals("Y")) {
-                logger.info("User Is disabled / Inactive");
-                userModel.setFailedLoginCount(user.get().getFailedLoginCount() + 1);
-                if(user.get().getFailedLoginCount() >= configParams.getFailedLoginCount()) {
-                    userModel.setStatus("N");
-                }
-                history.setStatus("N");
-                history.setReason("USER INACTIVE");
-                //lets update user's failedLoginCount and status
-                userService.updateUser(userModel);
-                //lets save log
-                loginHistoryService.createLoginHistory(history);
-                LoginHistory loginHistory = loginHistoryService.createLoginHistory(history); //save login history
-                return new GeneralResponse(CommonResponse.USER_DIABLED_CODE, CommonResponse.USER_DISABLED_MSG);
-            } else {
-                if(CommonHelper.MatchBCryptPassword(user.get().getPassword(), req.getPassword())) {
-                    logger.info("User Login Successful");
-                    history.setStatus("Y");
-                    history.setReason(CommonResponse.SUCCESS_MSG);
-                    String token = jwtUtil.GenerateUserToken(user.get());
-                    userVo.setId(user.get().getId());
-                    userVo.setName(user.get().getName());
-                    userVo.setUsername(user.get().getUsername());
-                    userVo.setEmail(user.get().getEmail());
-                    userVo.setRole(user.get().getRole());
-                    userVo.setPhone(user.get().getPhone());
-                    userVo.setIsDefaultPassword(user.get().getIsDefaultPassword());
-                    myData.put("user", userVo);
-                    myData.put("token", token);
-                    GeneralResponse response = new GeneralResponse(CommonResponse.SUCCESS_CODE, CommonResponse.SUCCESS_MSG, myData);
-                    userModel.setFailedLoginCount(0);
-                    userModel.setStatus("Y");
-                    //lets update user
-                    userService.updateUser(userModel);
-                    LoginHistory loginHistory = loginHistoryService.createLoginHistory(history); //save login history
-                    return response;
-                } else {
-                    history.setStatus("N");
-                    history.setReason(CommonResponse.LOGIN_FAILED_MSG);
-                    GeneralResponse response = new GeneralResponse(CommonResponse.LOGIN_FAILED_CODE, CommonResponse.LOGIN_FAILED_MSG);
-                    userModel.setFailedLoginCount(user.get().getFailedLoginCount() + 1);
-                    if(user.get().getFailedLoginCount() >= configParams.getFailedLoginCount()) {
-                        userModel.setStatus("N");
-                    }
-                    //lets update user
-                    userService.updateUser(userModel);
-                    LoginHistory loginHistory = loginHistoryService.createLoginHistory(history); //save login history
-                    return  response;
-                }
-            }
-        }
-    }
 }

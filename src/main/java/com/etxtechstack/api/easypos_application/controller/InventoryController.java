@@ -86,6 +86,11 @@ public class InventoryController {
         if(!CommonHelper.HasPermission(Permissions.StockUnitCreate, authUser.getRole().getPermissions())) {
             return new GeneralResponse(CommonResponse.INSUFFICIENT_PERMISSION_CODE, CommonResponse.INSUFFICIENT_PERMISSION_MSG);
         }
+        if(reqBody.getName().isEmpty()) {
+            return new GeneralResponse(CommonResponse.ERROR_CODE, "NAME FIELD CANNOT BE EMPTY!");
+        } else if(reqBody.getFactor() == null) {
+            return new GeneralResponse(CommonResponse.ERROR_CODE, "SCALE FACTOR FIELD CANNOT BE EMPTY!");
+        }
         DBValidationResponse validateRes = dbValidateHelper.validateStockUnit(reqBody.getName());
         if(validateRes.isExists()) {
             return new GeneralResponse(CommonResponse.ERROR_CODE, validateRes.getMessage());
@@ -118,6 +123,11 @@ public class InventoryController {
         //lets authorize action
         if(!CommonHelper.HasPermission(Permissions.StockUnitUpdate, authUser.getRole().getPermissions())) {
             return new GeneralResponse(CommonResponse.INSUFFICIENT_PERMISSION_CODE, CommonResponse.INSUFFICIENT_PERMISSION_MSG);
+        }
+        if(reqBody.getName().isEmpty()) {
+            return new GeneralResponse(CommonResponse.ERROR_CODE, "NAME FIELD CANNOT BE EMPTY!");
+        } else if(reqBody.getFactor() == null) {
+            return new GeneralResponse(CommonResponse.ERROR_CODE, "SCALE FACTOR FIELD CANNOT BE EMPTY!");
         }
         DBValidationResponse validateRes = dbValidateHelper.validateStockUnit(reqBody.getName());
         if(validateRes.isExists() && !validateRes.getId().equals(stockUnitId)) {
@@ -161,6 +171,31 @@ public class InventoryController {
         return new GeneralResponse(CommonResponse.SUCCESS_CODE, CommonResponse.SUCCESS_MSG);
     }
 
+    @GetMapping(value = "/stock-units/{stockUnitId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody
+    GeneralResponse getStockUnit(@RequestHeader(name = "Authorization", required = true) String token,
+                                    @PathVariable(name = "stockUnitId") Integer stockUnitId,
+                                    HttpServletRequest request) {
+        //lets authenticate
+        ValidateTokenResponse validateTokenResponse = jwtUtil.validateUserToken(token);
+        if(!validateTokenResponse.getCode().equals(CommonResponse.SUCCESS_CODE)) {
+            return new GeneralResponse(CommonResponse.ERROR_CODE, CommonResponse.INVALID_JWT_TOKEN);
+        }
+        Integer authUserId = validateTokenResponse.getUserId();
+        User authUser = userService.getUserById(authUserId);
+        Map data = new HashMap();
+        //lets authorize action
+        if(!CommonHelper.HasPermission(Permissions.StockUnitDelete, authUser.getRole().getPermissions())) {
+            return new GeneralResponse(CommonResponse.INSUFFICIENT_PERMISSION_CODE, CommonResponse.INSUFFICIENT_PERMISSION_MSG);
+        }
+        StockUnit stockUnitModel = inventoryService.getStockUnitById(stockUnitId);
+        data.put("stockUnit", stockUnitModel);
+        //lets log action
+        ActivityLog logModel = new ActivityLog(SystemEvents.DELETE, SystemModels.STOCK_UNIT, String.valueOf(stockUnitModel.getId()),
+                stockUnitModel.getName(), null, request.getRemoteAddr(), request.getLocalAddr(), authUser);
+        activityLogService.createActivityLog(logModel);
+        return new GeneralResponse(CommonResponse.SUCCESS_CODE, CommonResponse.SUCCESS_MSG, data);
+    }
 
 
 
@@ -203,6 +238,9 @@ public class InventoryController {
         if(!CommonHelper.HasPermission(Permissions.ProductCategoryCreate, authUser.getRole().getPermissions())) {
             return new GeneralResponse(CommonResponse.INSUFFICIENT_PERMISSION_CODE, CommonResponse.INSUFFICIENT_PERMISSION_MSG);
         }
+        if(reqBody.getName().isEmpty()) {
+            return new GeneralResponse(CommonResponse.ERROR_CODE, "NAME FIELD CANNOT BE EMPTY!");
+        }
         DBValidationResponse validateRes = dbValidateHelper.validateProductCategory(reqBody.getName());
         if(validateRes.isExists()) {
             return new GeneralResponse(CommonResponse.ERROR_CODE, validateRes.getMessage());
@@ -235,6 +273,9 @@ public class InventoryController {
         //lets authorize action
         if(!CommonHelper.HasPermission(Permissions.ProductCategoryUpdate, authUser.getRole().getPermissions())) {
             return new GeneralResponse(CommonResponse.INSUFFICIENT_PERMISSION_CODE, CommonResponse.INSUFFICIENT_PERMISSION_MSG);
+        }
+        if(reqBody.getName().isEmpty()) {
+            return new GeneralResponse(CommonResponse.ERROR_CODE, "NAME FIELD CANNOT BE EMPTY!");
         }
         DBValidationResponse validateRes = dbValidateHelper.validateProductCategory(reqBody.getName());
         if(validateRes.isExists() && !validateRes.getId().equals(productCategoryId)) {
@@ -278,6 +319,34 @@ public class InventoryController {
         activityLogService.createActivityLog(logModel);
         return new GeneralResponse(CommonResponse.SUCCESS_CODE, CommonResponse.SUCCESS_MSG);
     }
+
+    @Transactional
+    @GetMapping(value = "/product-categories/{productCategoryId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody
+    GeneralResponse getProductCategory(@RequestHeader(name = "Authorization", required = true) String token,
+                                          @PathVariable(name = "productCategoryId") Integer productCategoryId,
+                                          HttpServletRequest request) {
+        //lets authenticate
+        ValidateTokenResponse validateTokenResponse = jwtUtil.validateUserToken(token);
+        Map data = new HashMap();
+        if(!validateTokenResponse.getCode().equals(CommonResponse.SUCCESS_CODE)) {
+            return new GeneralResponse(CommonResponse.ERROR_CODE, CommonResponse.INVALID_JWT_TOKEN);
+        }
+        Integer authUserId = validateTokenResponse.getUserId();
+        User authUser = userService.getUserById(authUserId);
+        //lets authorize action
+        if(!CommonHelper.HasPermission(Permissions.ProductCategoryDelete, authUser.getRole().getPermissions())) {
+            return new GeneralResponse(CommonResponse.INSUFFICIENT_PERMISSION_CODE, CommonResponse.INSUFFICIENT_PERMISSION_MSG);
+        }
+        ProductCategory productCategoryModel = inventoryService.getProductCategoryById(productCategoryId);
+        data.put("productCategory", productCategoryModel);
+        //lets log action
+        ActivityLog logModel = new ActivityLog(SystemEvents.DELETE, SystemModels.PRODUCT_CATEGORY, String.valueOf(productCategoryModel.getId()),
+                productCategoryModel.getName(), null, request.getRemoteAddr(), request.getLocalAddr(), authUser);
+        activityLogService.createActivityLog(logModel);
+        return new GeneralResponse(CommonResponse.SUCCESS_CODE, CommonResponse.SUCCESS_MSG, data);
+    }
+
 
     //=======================PRODUCT===================
 
@@ -344,6 +413,14 @@ public class InventoryController {
         if(!CommonHelper.HasPermission(Permissions.ProductCategoryCreate, authUser.getRole().getPermissions())) {
             return new GeneralResponse(CommonResponse.INSUFFICIENT_PERMISSION_CODE, CommonResponse.INSUFFICIENT_PERMISSION_MSG);
         }
+        //check for not null values
+        if(reqBody.getName().isEmpty()) {
+            return new GeneralResponse(CommonResponse.ERROR_CODE, "PRODUCT NAME FIELD CANNOT BE EMPTY!");
+        } else if(reqBody.getProductCategoryId() == null) {
+            return new GeneralResponse(CommonResponse.ERROR_CODE, "PRODUCT CATEGORY FIELD CANNOT BE EMPTY!");
+        } else if(reqBody.getDefaultStockUnitId() == null) {
+            return new GeneralResponse(CommonResponse.ERROR_CODE, "PRODUCT NAME FIELD CANNOT BE EMPTY!");
+        }
         DBValidationResponse validateRes = dbValidateHelper.validateProduct(reqBody.getName(), reqBody.getBarcode());
         if(validateRes.isExists()) {
             return new GeneralResponse(CommonResponse.ERROR_CODE, validateRes.getMessage());
@@ -376,6 +453,13 @@ public class InventoryController {
         ValidateTokenResponse validateTokenResponse = jwtUtil.validateUserToken(token);
         if(!validateTokenResponse.getCode().equals(CommonResponse.SUCCESS_CODE)) {
             return new GeneralResponse(CommonResponse.ERROR_CODE, CommonResponse.INVALID_JWT_TOKEN);
+        }
+        if(reqBody.getName().isEmpty()) {
+            return new GeneralResponse(CommonResponse.ERROR_CODE, "PRODUCT NAME FIELD CANNOT BE EMPTY!");
+        } else if(reqBody.getProductCategoryId() == null) {
+            return new GeneralResponse(CommonResponse.ERROR_CODE, "PRODUCT CATEGORY FIELD CANNOT BE EMPTY!");
+        } else if(reqBody.getDefaultStockUnitId() == null) {
+            return new GeneralResponse(CommonResponse.ERROR_CODE, "PRODUCT NAME FIELD CANNOT BE EMPTY!");
         }
         Integer authUserId = validateTokenResponse.getUserId();
         User authUser = userService.getUserById(authUserId);

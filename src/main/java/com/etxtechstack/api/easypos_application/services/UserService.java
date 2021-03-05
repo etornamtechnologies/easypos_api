@@ -2,6 +2,7 @@ package com.etxtechstack.api.easypos_application.services;
 
 import com.etxtechstack.api.easypos_application.models.User;
 import com.etxtechstack.api.easypos_application.repositories.UserRepository;
+import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -11,6 +12,9 @@ import java.util.Optional;
 
 @Service
 public class UserService {
+    @Autowired
+    private Logger logger;
+
     @Autowired
     private UserRepository userRepository;
 
@@ -71,7 +75,8 @@ public class UserService {
         try {
             userRepository.delete(model);
         } catch (Exception e) {
-            throw new RuntimeException(e.getMessage());
+            logger.error(e.getMessage());
+            throw new RuntimeException("Cannot Delete This User!");
         }
     }
 }

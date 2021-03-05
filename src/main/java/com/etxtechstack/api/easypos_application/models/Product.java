@@ -3,6 +3,7 @@ package com.etxtechstack.api.easypos_application.models;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import javax.persistence.*;
+import javax.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,7 @@ public class Product extends AuditModel implements Serializable {
     @Column(name = "id", updatable = false, nullable = false)
     private Integer id;
 
+    @NotNull
     @Column(name = "name", nullable = false, unique = false)
     private String name;
 

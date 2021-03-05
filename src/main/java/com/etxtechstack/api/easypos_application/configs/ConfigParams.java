@@ -26,7 +26,7 @@ public class ConfigParams {
     private String jwtIssuer;
 
     @NotNull
-    @Value("${my.failedLoginCount}")
+    @Value("${my.jwtTokenValidity}")
     private Integer jwtTokenValidity;
 
     @NotNull
