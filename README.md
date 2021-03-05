@@ -7,3 +7,7 @@ For building and running the application you need:
 * Maven 3
 * Postgres DB
 
+## Running the application locally
+```bash
+mvn spring-boot:run
+```
